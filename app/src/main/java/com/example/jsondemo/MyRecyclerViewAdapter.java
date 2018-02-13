@@ -1,11 +1,11 @@
 package com.example.jsondemo;
 
-import android.app.Fragment;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.preference.PreferenceManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,10 +20,9 @@ import com.google.gson.Gson;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Handler;
-import java.util.zip.Inflater;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -36,11 +35,10 @@ public class MyRecyclerViewAdapter extends RecyclerView.Adapter<MyRecyclerViewAd
 
     private Context context;
 
-    //private Map<ImageView , String> map ;
+    private Map<ImageView,String > imgMap = new HashMap<>();
 
-    private String mUrl = "";
+    private Map<String , String> urlMap = new HashMap<>();
 
-    private ImageView mImageView;
 
     public MyRecyclerViewAdapter(List<JSubject> mList ,Context context ){
         this.subjects = mList;
@@ -91,33 +89,29 @@ public class MyRecyclerViewAdapter extends RecyclerView.Adapter<MyRecyclerViewAd
         String url_photo = "https://api.douban.com/v2/movie/subject/"
                 + subject.id + "/photos?apikey=0b2bdeda43b5688921839c8ecb20399b&start=0&count=100&client=&udid=";
 
-        //RequestPhoto(url_photo);
-        LoadThread(url_photo ,holder.img);
-        if(holder.img.getTag() != null){
-            System.out.println("Bingo!");
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-            String photoAddress = prefs.getString("photo", null);
-
-            Glide.with(holder.img.getContext())
-                    .load(photoAddress)
+      //  if(imgMap.get(holder.img) == null)
+            imgMap.put(holder.img ,url_photo);
+        if(urlMap.get(url_photo) == null)
+            LoadThread(url_photo);
+        if(imgMap.get(holder.img) != null && urlMap.get(imgMap.get(holder.img))!= null){
+            Glide.with(context)
+                    .load(urlMap.get(imgMap.get(holder.img)))
                     .placeholder(R.mipmap.ic_launcher)
-                    .error(R.drawable.error)
-                    .into(holder.img);//图片
+                    .into(holder.img );
         }
-        //Glide.with(context).load(holder.img.getTag()).placeholder(R.mipmap.ic_launcher).into(holder.img);//图片
     }
 
-    public void LoadThread(final String url ,ImageView imageView){
-        mImageView = imageView;
-        new Thread(new Runnable( ) {
+    public void LoadThread(final String url){
+
+        new Thread(new Runnable() {
             @Override
             public void run() {
-                RequestPhoto(url);
+                RequestPhotoURL(url);
             }
         }).start();
     }
 
-    public void RequestPhoto(final String url_ph){
+    public void RequestPhotoURL(final String url_ph){
         HttpUtil.sendOkHttpRequest(url_ph, new Callback( ) {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -127,22 +121,12 @@ public class MyRecyclerViewAdapter extends RecyclerView.Adapter<MyRecyclerViewAd
             public void onResponse(Call call, Response response) throws IOException {
                 final String photoText = response.body().string();
                 final Pic pic = new Gson().fromJson(photoText , Pic.class);
-                SharedPreferences.Editor editor =  PreferenceManager
-                        .getDefaultSharedPreferences(context).edit();
-                editor.putString("photo", pic.photos.get(0).cover);
-                editor.apply();
-                mImageView.setTag(R.id.movie_pic ,pic.photos.get(0).cover);
-                System.out.println("图片的请求结果："+pic.photos.get(0).cover);
+                urlMap.put(url_ph ,pic.photos.get(0).cover);
             }
         });
     }
 
-    @Override
-    public void onViewRecycled(ViewHolder holder) {
-        super.onViewRecycled(holder);
-//        if(holder != null)
-//            Glide.clear(holder.itemView);
-    }
+
 
     @Override
     public int getItemCount() {
